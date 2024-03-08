@@ -1,0 +1,230 @@
+'***********************************************************************************************
+'
+' Name:                 GenCoverLetter
+' Description:          This VBA script is intended to be used in Microsoft Word to call the 
+'                       OpenAI API: https://api.openai.com/v1/chat/completions to create a job 
+'                       application cover letter. It uses the Resume and job description as input
+'                       to the generated output.
+' Date:                 March 6, 2024
+' Author:               Mark Stankevicius
+' GitHib Repository:    https://github.com/stankev/chatgpt-word-macro-vba
+'
+'************************************************************************************************
+Sub GenCoverLetter()
+        
+    Dim returnedText As String, response As String
+    Dim systemPrompt As String, chatPromptResume As String, chatPromptJob As String
+    Dim url As String, requestData As String, modelName As String
+    Dim httpRequest As Object
+    Dim OpenAI_Api_Key As String
+    Dim statusCode As Long
+    Dim errorText As String, displayErrorText As String, errorType As String
+    Dim startString As String, endString As String
+    Dim jsonObjE As Object
+    Dim currentDoc As Document
+    
+    
+    ' Set the info for the POST request
+    ' Enter Your API Key in the line below
+    OpenAI_Api_Key = "sk-nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn"   ' MAKE SURE TO REPLACE THE TEXT WITH YOUR API KEY
+    
+    ' Set the Model Name for use in the request
+    modelName = "gpt-3.5-turbo"
+    
+    ' Set the API endpoint URL
+    url = "https://api.openai.com/v1/chat/completions"  ' compatible with gpt-4, gpt-4-turbo-preview, gpt-3.5-turbo
+    
+    ' Indicate to the Chat API what action it should take and how to behave
+    systemPrompt = "I want you to act as an expert cover letter writer from the point of view of a recruiter reviewing the letter. " & _
+               "I will provide you with the job description, and my relevant skills and experience in the form of a resume, " & _
+               " and you will use this information to create a professional and effective cover letter. " & _
+               "I want you to use bullet form in the formatting and layout to make the cover letter visually appealing " & _
+               "and easy to read. You should also tailor the cover letter's content to the specific job and company that I am applying to, " & _
+               "highlighting my relevant skills and experience and explaining why I am a strong candidate. " & _
+               "Please ensure the cover letter is clear, concise, and effectively communicates my qualifications and interest in the job. " & _
+               "If the job description has requirements for skills or experience that I do not show on my resume do not add them to the cover letter. " & _
+               "Focus on best practices and industry standards for cover letter writing. " & _
+               "The resume and job description are provided in the follow on messages."
+
+
+    ' Extract the resume text from the document
+    ' Set the delimiters for the search
+    startString = "resume:"
+    endString = "resume end"
+    returnedText = ExtractText(startString, endString)
+    If Left(returnedText, 7) = "Error: " Then
+        MsgBox returnedText
+        Exit Sub
+    End If
+        
+    'Cleaning the resume text and make sure it's all one contunuous string of text
+    chatPromptResume = CleanText(returnedText)
+   
+    
+    ' Extract the job description from the document
+    ' Set the delimiters for the search
+    startString = "job description:"
+    endString = "job description end"
+    returnedText = ExtractText(startString, endString)
+    If Left(returnedText, 7) = "Error: " Then
+        MsgBox returnedText
+        Exit Sub
+    End If
+        
+    'Cleaning the job description text and make sure it's all one contunuous string of text
+    chatPromptJob = CleanText(returnedText)
+      
+    ' Construct JSON request data
+    requestData = "{""model"":""" & modelName & """, ""messages"": [{""role"":""system"",""content"":""" & systemPrompt & """}, {""role"":""user"",""content"":""" & chatPromptResume & """}, {""role"":""user"",""content"":""" & chatPromptJob & """} ], ""temperature"": 0.7, ""max_tokens"": 450}"
+  
+   
+    ' Create the HTTP request object
+    Set httpRequest = CreateObject("MSXML2.XMLHTTP")
+       
+    ' Set HTTP request parameters
+    With httpRequest
+       .Open "POST", url, False
+       .setRequestHeader "Content-Type", "application/json"
+       .setRequestHeader "Authorization", "Bearer " & OpenAI_Api_Key ' Replace with your API key
+       .send requestData
+       statusCode = .Status
+       response = .responseText
+    End With
+    
+
+    ' set the location to insert the cover letter at the end of the document
+    Dim existingTextEnd As Long
+    Set currentDoc = ActiveDocument                     ' set to the current document
+    existingTextEnd = currentDoc.Content.End - 1        ' end of text in document minus 1 so that it doesn't add the text out of range of the document
+
+    
+    ' Check if request was successful
+    If statusCode = 200 Then
+        ' text generation was successful
+        Dim displayText As String
+        displayText = FormatResponse(response)
+        
+        'Insert the generated cover letter text into the Word document
+        currentDoc.Range(existingTextEnd, existingTextEnd).InsertAfter vbNewLine & displayText
+       
+    Else
+        ' Error condition - Parse the JSON response
+        Set jsonObjE = JsonConverter.ParseJson(response)
+        errorText = jsonObjE("error")("message")
+        errorType = jsonObjE("error")("type")
+        
+        'Insert error message into Word document
+        displayErrorText = "Error: " & vbCrLf & "Error type = " & errorType & vbCrLf & "Error Description = " & errorText
+        currentDoc.Range(existingTextEnd, existingTextEnd).InsertAfter vbNewLine & displayErrorText
+      
+    End If
+    
+    ' Clean up
+    Set httpRequest = Nothing
+
+
+End Sub
+
+' Extract the generated text from the chat/completions API response
+Function FormatResponse(responseText As String) As String
+ 
+    Dim jsonObj As Object
+    Dim textToInsert As String
+    On Error GoTo FormatResponseError
+    
+    ' Parse the JSON response
+    Set jsonObj = JsonConverter.ParseJson(responseText)
+    
+    ' Check if JSON parsing was successful
+    If jsonObj Is Nothing Then
+        ' Handle JSON parsing failure
+        FormatResponse = "Error: JSON parsing failed."
+        Exit Function
+    End If
+    
+    ' Check if the expected structure of JSON is found
+    If Not jsonObj.Exists("choices") Or jsonObj("choices").Count = 0 Then
+        ' Handle unexpected JSON structure
+        FormatResponse = "Error: Unexpected JSON structure."
+        Exit Function
+    End If
+    
+    ' Extract the "content" part from the JSON response - which contains the text of the cover letter
+    textToInsert = jsonObj("choices")(1)("message")("content")
+    
+    ' Return the extracted text
+    FormatResponse = textToInsert
+    
+    Exit Function
+    
+FormatResponseError:
+
+    MsgBox "Error " & Err.Number & " (" & Err.Description & ") in procedure FormatResponse."
+    
+End Function
+
+' Extract the text needed from the word document and return string to the caller
+Function ExtractText(startDelim As String, endDelim As String) As String
+    On Error GoTo ErrorHandler
+
+    Dim doc As Document
+    Dim searchRange As Range
+    Dim startPos As Long
+    Dim endPos As Long
+    Dim extractedText As String
+        
+    ' Set the document object to current document
+    Set doc = ActiveDocument
+    
+    ' Set the search range to the entire document
+    Set searchRange = doc.Range
+
+    With searchRange.Find                       ' work with the current document contents that is copied to searchRange
+        .ClearFormatting                        ' clear any previous formatting that might affect the search
+        .text = startDelim                      ' starting delimimeter for the text
+        If .Execute Then
+            startPos = searchRange.End + 1      ' set the startPos to the end of the found text
+        Else
+            ' text start delimiter not found
+            ExtractText = "Error: """ & startDelim & """ text not found"
+            Exit Function
+        End If
+    End With
+            
+    Set searchRange = doc.Range                 ' reset the search range to the entire document
+            
+    With searchRange.Find                       ' work with the current document contents that is copied to searchRange
+        .ClearFormatting                        ' clear any previous formatting that might affect the search
+        .text = endDelim                        ' ending delimimeter for the text
+        If .Execute Then
+            endPos = searchRange.Start - 1      ' move back 1 character before the end delimiter
+        Else
+            ' text end delimiter not found
+            ExtractText = "Error: """ & endDelim & """ text not found"
+            Exit Function
+        End If
+    End With
+        
+    extractedText = Mid(doc.Range(startPos, endPos).text, 1)         ' extract the text from the document & return to the caller
+    ExtractText = extractedText
+    
+    Exit Function
+    
+ErrorHandler:
+    ' Handle any unexpected errors
+    ExtractText = "Error: an unexpected error occurred in procedure ExtractText"
+    
+End Function
+
+' Clean up the string of text to remove ASCII formating that will cause issues with the API call
+Function CleanText(textToClean As String) As String
+    Dim cleanedText As String
+    
+    cleanedText = Replace(textToClean, vbLf, "")              ' remove line feed characters
+    cleanedText = Replace(cleanedText, vbCr, "")              ' remove carriage return characters
+    cleanedText = Replace(cleanedText, Chr(11), "")           ' remove manual line break characters
+    cleanedText = Replace(cleanedText, vbCrLf, "")            ' remove combined carriage return and line feed characters
+    cleanedText = Replace(cleanedText, Chr(34), Chr(39))      ' replace double quotes with single quote
+    CleanText = cleanedText
+
+End Function
