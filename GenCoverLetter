@@ -22,7 +22,8 @@ Sub GenCoverLetter()
     Dim startString As String, endString As String
     Dim jsonObjE As Object
     Dim currentDoc As Document
-    
+    Dim tempValue As Double, top_pValue As Double
+
     
     ' Set the info for the POST request
     ' Enter Your API Key in the line below
@@ -30,7 +31,11 @@ Sub GenCoverLetter()
     
     ' Set the Model Name for use in the request
     modelName = "gpt-3.5-turbo"
-    
+
+    ' Set the values for temperature and top_p - you can experiment with these values to get your desired results
+    tempValue = 0.7
+    top_pValue = 0.9
+
     ' Set the API endpoint URL
     url = "https://api.openai.com/v1/chat/completions"  ' compatible with gpt-4, gpt-4-turbo-preview, gpt-3.5-turbo
     
@@ -57,10 +62,10 @@ Sub GenCoverLetter()
         Exit Sub
     End If
         
-    'Cleaning the resume text and make sure it's all one contunuous string of text
+    'Cleaning the resume text and make sure it's all one contunuous string of text without formatting ASCII characters
     chatPromptResume = CleanText(returnedText)
-   
-    
+
+
     ' Extract the job description from the document
     ' Set the delimiters for the search
     startString = "job description:"
@@ -71,13 +76,19 @@ Sub GenCoverLetter()
         Exit Sub
     End If
         
-    'Cleaning the job description text and make sure it's all one contunuous string of text
+    'Cleaning the job description text and make sure it's all one contunuous string of text without formatting ASCII characters
     chatPromptJob = CleanText(returnedText)
-      
+
+
     ' Construct JSON request data
-    requestData = "{""model"":""" & modelName & """, ""messages"": [{""role"":""system"",""content"":""" & systemPrompt & """}, {""role"":""user"",""content"":""" & chatPromptResume & """}, {""role"":""user"",""content"":""" & chatPromptJob & """} ], ""temperature"": 0.7, ""max_tokens"": 450}"
-  
-   
+    requestData = "{""model"":""" & modelName & """, " & _
+              """messages"": [{""role"":""system"",""content"":""" & systemPrompt & """}, " & _
+                              "{""role"":""user"",""content"":""" & chatPromptResume & """}, " & _
+                              "{""role"":""user"",""content"":""" & chatPromptJob & """} ], " & _
+              """temperature"": " & tempValue & ", " & _
+              """top_p"": " & top_pValue & ", " & _
+              """max_tokens"": 650}"
+     
     ' Create the HTTP request object
     Set httpRequest = CreateObject("MSXML2.XMLHTTP")
        
@@ -85,7 +96,7 @@ Sub GenCoverLetter()
     With httpRequest
        .Open "POST", url, False
        .setRequestHeader "Content-Type", "application/json"
-       .setRequestHeader "Authorization", "Bearer " & OpenAI_Api_Key ' Replace with your API key
+       .setRequestHeader "Authorization", "Bearer " & OpenAI_Api_Key ' Replace with your API key in the code above
        .send requestData
        statusCode = .Status
        response = .responseText
@@ -104,7 +115,7 @@ Sub GenCoverLetter()
         Dim displayText As String
         displayText = FormatResponse(response)
         
-        'Insert the generated cover letter text into the Word document
+        'Insert the generated cover letter text into the Word document at the end of any existing text
         currentDoc.Range(existingTextEnd, existingTextEnd).InsertAfter vbNewLine & displayText
        
     Else
@@ -222,7 +233,8 @@ Function CleanText(textToClean As String) As String
     
     cleanedText = Replace(textToClean, vbLf, "")              ' remove line feed characters
     cleanedText = Replace(cleanedText, vbCr, "")              ' remove carriage return characters
-    cleanedText = Replace(cleanedText, Chr(11), "")           ' remove manual line break characters
+    cleanedText = Replace(cleanedText, vbTab, "")             ' remove tab characters
+    cleanedText = Replace(cleanedText, vbVerticalTab, "")     ' remove manual line break characters
     cleanedText = Replace(cleanedText, vbCrLf, "")            ' remove combined carriage return and line feed characters
     cleanedText = Replace(cleanedText, Chr(34), Chr(39))      ' replace double quotes with single quote
     CleanText = cleanedText
