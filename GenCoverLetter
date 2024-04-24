@@ -237,6 +237,8 @@ Function CleanText(textToClean As String) As String
     cleanedText = Replace(cleanedText, vbVerticalTab, "")     ' remove manual line break characters
     cleanedText = Replace(cleanedText, vbCrLf, "")            ' remove combined carriage return and line feed characters
     cleanedText = Replace(cleanedText, Chr(34), Chr(39))      ' replace double quotes with single quote
+    cleanedText = Replace(cleanedText, Chr(7), "")            ' remove bell characters
+    cleanedText = Replace(cleanedText, Chr(1), "")            ' remove start of header characters
     CleanText = cleanedText
 
 End Function
