@@ -125,7 +125,7 @@ Sub GenCoverLetter()
         errorType = jsonObjE("error")("type")
         
         'Insert error message into Word document
-        displayErrorText = "Error: " & vbCrLf & "Error type = " & errorType & vbCrLf & "Error Description = " & errorText
+        displayErrorText = "Error: Status code = " & statusCode & vbCrLf & "Error type = " & errorType & vbCrLf & "Error Description = " & errorText
         currentDoc.Range(existingTextEnd, existingTextEnd).InsertAfter vbNewLine & displayErrorText
       
     End If
