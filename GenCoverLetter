@@ -116,7 +116,7 @@ Sub GenCoverLetter()
         displayText = FormatResponse(response)
         
         'Insert the generated cover letter text into the Word document at the end of any existing text
-        currentDoc.Range(existingTextEnd, existingTextEnd).InsertAfter vbNewLine & displayText
+        currentDoc.Range(existingTextEnd, existingTextEnd).InsertAfter vbNewLine & "This is the generated cover letter:" & vbNewLine & displayText
        
     Else
         ' Error condition - Parse the JSON response
