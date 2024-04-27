@@ -7,7 +7,7 @@
 '                       to the generated output.
 ' Date:                 March 6, 2024
 ' Author:               Mark Stankevicius
-' GitHib Repository:    https://github.com/stankev/chatgpt-word-macro-vba
+' GitHub Repository:    https://github.com/stankev/chatgpt-word-macro-vba
 '
 '************************************************************************************************
 Sub GenCoverLetter()
