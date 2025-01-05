@@ -30,7 +30,7 @@ Sub GenCoverLetter()
     OpenAI_Api_Key = "sk-nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn"   ' MAKE SURE TO REPLACE THE TEXT WITH YOUR API KEY
     
     ' Set the Model Name for use in the request
-    modelName = "gpt-3.5-turbo"
+    modelName = "gpt-4o-mini"
 
     ' Set the values for temperature and top_p - you can experiment with these values to get your desired results
     tempValue = 0.7
